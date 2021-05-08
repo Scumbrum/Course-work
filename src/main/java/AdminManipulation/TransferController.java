@@ -1,7 +1,10 @@
 package AdminManipulation;
 
+import Additional.Login;
 import Database.UpdateChannel;
-import Database.UpdateTransfer;
+import Exceptions.NoChannel;
+import Exceptions.NoNameTransfer;
+import Exceptions.TheSameName;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -9,10 +12,9 @@ import javax.servlet.annotation.*;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.TreeMap;
 
 @WebServlet(name = "TransferController", value = "/TransferController")
-public class TransferController extends HttpServlet {
+public class TransferController extends Login {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
     doPost(request, response);
@@ -20,76 +22,175 @@ public class TransferController extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        boolean ch=chekCustomer(request,response);
+        if(!ch){
+            return;
+        }
         String action =request.getParameter("action");
         String id = request.getParameter("id");
-        String host = getServletContext().getInitParameter("database");
-        String user = getServletContext().getInitParameter("user");
-        String dbpassword = getServletContext().getInitParameter("password");
-        String type = "com.mysql.cj.jdbc.Driver";
-        try (UpdateTransfer ut = new UpdateTransfer(host, user, dbpassword, type)) {
+        ArrayList<String> Dbparams = getparam();
+        try (UpdateChannel uc = new UpdateChannel(Dbparams.get(0), Dbparams.get(1), Dbparams.get(2), Dbparams.get(3)))  {
             if(action!=null) {
                 switch (action) {
                     case ("delete"):
-                        ut.delete(Integer.parseInt(id));
+                        LOCK.writeLock().lock();
+                        try {
+                            uc.delete("delete from transfer where id ='" + id + "'");
+                        }finally {
+                            LOCK.writeLock().unlock();
+                        }
                         break;
                     case ("Add"):
-                        ArrayList<String> data= ut.getNewData();
-                        request.setAttribute("selected",data);
+                        LOCK.readLock().lock();
+                        try {
+                            ArrayList<String> data = uc.getMeta("transfer");
+                            request.setAttribute("selected", data);
+                            request.setAttribute("meta", data);
+                        }finally {
+                            LOCK.readLock().unlock();
+                        }
                         request.setAttribute("action","doAdd");
-                        request.setAttribute("meta",ut.getMeta());
                         break;
                     case ("refactor"):
-                        ArrayList<String> dataRef= ut.getData("id="+id,"*").get(0);
-                        try(UpdateChannel uc = new UpdateChannel(host, user, dbpassword, type)){
-                            dataRef.set(1,uc.getName(dataRef.get(1)));
+                        LOCK.readLock().lock();
+                        try {
+                            ArrayList<String> dataRef = uc.select("select * from transfer where id ='" + id + "'").get(0);
+                            String name = uc.select("select name from chanels where id ='" + dataRef.get(1) + "'").get(0).get(0);
+                            dataRef.set(1, name);
+                            request.setAttribute("selected", dataRef);
+                            request.setAttribute("id", id);
+                            request.setAttribute("meta",uc.getMeta("transfer"));
+                            request.setAttribute("action","doRefactor");
+                        }finally {
+                            LOCK.readLock().unlock();
                         }
-                        request.setAttribute("selected",dataRef);
-                        request.setAttribute("id",id);
-                        request.setAttribute("action","doRefactor");
-                        request.setAttribute("meta",ut.getMeta());
                         break;
                     case("doAdd"):
-                        ArrayList<String> params = new ArrayList<>();
-                        ArrayList<String> meta = ut.getMeta();
-                        for(int i=1;i<meta.size()-1;i++){
-                            String param = request.getParameter(meta.get(i));
-                            if(meta.get(i).equals("chanel_id")){
-                                try(UpdateChannel uc = new UpdateChannel(host, user, dbpassword, type)) {
-                                    params.add(uc.getId(param));
-                                }
-                            }else{
-                                params.add(param);
-                            }
+                        LOCK.writeLock().lock();
+                        try {
+                            doAdd(request, uc);
+                        }finally {
+                            LOCK.writeLock().unlock();
                         }
-                        ut.add(params);
                         break;
                     case("doRefactor"):
-                        ArrayList<String> metaRef = ut.getMeta();
-                        ArrayList<String> curr = ut.getData("id="+id, "*").get(0);
-                        for(int i=1;i<metaRef.size()-1;i++){
-                            String param = request.getParameter(metaRef.get(i));
-                            if(metaRef.get(i).equals("chanel_id")){
-                                try(UpdateChannel uc = new UpdateChannel(host, user, dbpassword, type)) {
-                                    if(!curr.get(i).equals(uc.getId(param))) {
-                                        ut.alter(metaRef.get(i), uc.getId(param), id);
-                                    }
-                                }
-                            } else {
-                                if(!curr.get(i).equals(param)) {
-                                    ut.alter(metaRef.get(i), param, id);
-                                }
-                            }
+                        System.out.println(2);
+                        LOCK.writeLock().lock();
+                        try {
+                        doRefactor(request,uc,id);
+                        }finally {
+                            LOCK.writeLock().unlock();
                         }
                         break;
                 }
             }
-            ArrayList<ArrayList<String>> list = ut.getData("","id,name");
+        } catch (SQLException | ClassNotFoundException throwables) {
+            response.sendError(500);
+            return;
+        } catch (NoChannel e){
+            request.setAttribute("exception","noChannel");
+        } catch (NoNameTransfer e) {
+            request.setAttribute("exception","noNameTransfer");
+        } catch (TheSameName e){
+            request.setAttribute("exception","sameTransfer");
+        }
+        try (UpdateChannel uc = new UpdateChannel(Dbparams.get(0), Dbparams.get(1), Dbparams.get(2), Dbparams.get(3))){
+            ArrayList<ArrayList<String>> list = uc.select("select id, name from transfer");
             request.setAttribute("trlist", list);
         } catch (SQLException | ClassNotFoundException throwables) {
             response.sendError(500);
+            return;
         }
         request.setAttribute("controller", "transfers");
         RequestDispatcher rd = request.getRequestDispatcher("adminpage.jsp");
         rd.forward(request,response);
     }
-}
+
+
+    public void doAdd(HttpServletRequest request, UpdateChannel uc) throws SQLException, NoChannel, NoNameTransfer, TheSameName {
+        if(request.getParameter("name").equals("")){
+            throw new NoNameTransfer("NoNameTransfer");
+        }
+        if(!checkChannel(uc, request.getParameter("chanel_id"))){
+            throw new NoChannel("NoChannel");
+        }
+        String name = request.getParameter("name");
+        String channel = request.getParameter("chanel_id");
+        if(checkTransfer(uc,name,channel)){
+            throw new TheSameName("sameTransfer");
+        }
+            ArrayList<String> params = new ArrayList<>();
+            ArrayList<String> meta = uc.getMeta("transfer");
+            StringBuffer sb = new StringBuffer();
+            for (int i = 1; i < meta.size() - 1; i++) {
+                sb.append("`" + meta.get(i) + "`");
+                sb.append(",");
+                String param = request.getParameter(meta.get(i));
+                if (meta.get(i).equals("chanel_id")) {
+                    String chanel_id = uc.select("select id from chanels where name = '" + param + "'").get(0).get(0);
+                    params.add(chanel_id);
+                } else {
+                    params.add(param);
+                }
+            }
+            sb.delete(sb.length() - 1, sb.length());
+            String columns = sb.toString();
+            sb = new StringBuffer();
+            for (String param : params) {
+                sb.append("'");
+                sb.append(param);
+                sb.append("'");
+                sb.append(",");
+            }
+            sb.delete(sb.length() - 1, sb.length());
+            String values = sb.toString();
+            uc.add("insert into transfer (" + columns + ") values (" + values + ")");
+        }
+
+    private boolean checkTransfer(UpdateChannel uc, String name, String channel) throws SQLException {
+            String id = uc.select("select id from chanels where name ='" + channel + "'").get(0).get(0);
+            System.out.println(2);
+            ArrayList<ArrayList<String>> transfers = uc.select("select id from transfer " +
+                    "where name ='" + name + "' and chanel_id ='" + id + "'");
+            System.out.println(3);
+            if (transfers.size() != 0) {
+                return true;
+            }
+            return false;
+    }
+    private boolean checkChannel(UpdateChannel uc, String name) throws SQLException {
+            ArrayList<ArrayList<String>> chanels = uc.select("select id from chanels where name ='" + name + "'");
+            if (chanels.size() != 0) {
+                return true;
+            }
+            return false;
+    }
+
+
+    public void doRefactor(HttpServletRequest request, UpdateChannel uc, String id) throws SQLException, NoNameTransfer, NoChannel {
+        if(request.getParameter("name").equals("")){
+            throw new NoNameTransfer("NoNameTransfer");
+        }
+        if(!checkChannel(uc, request.getParameter("chanel_id"))){
+            throw new NoChannel("NoChannel");
+        }
+            ArrayList<String> metaRef = uc.getMeta("transfer");
+            System.out.println(1);
+            ArrayList<String> curr = uc.select("select * from transfer where id ='" + id + "'").get(0);
+            for (int i = 1; i < metaRef.size() - 1; i++) {
+                String param = request.getParameter(metaRef.get(i));
+                System.out.println(param);
+                if (metaRef.get(i).equals("chanel_id")) {
+                    String chanel_id = uc.select("select id from chanels where name ='" + param + "'").get(0).get(0);
+                    if (!curr.get(i).equals(chanel_id)) {
+                        uc.add("update transfer set chanel_id ='" + chanel_id + "'" + "where id ='" + id + "'");
+                    }
+                } else {
+                    if (!curr.get(i).equals(param)) {
+                        uc.add("update transfer set " + metaRef.get(i) + " = '" + param + "' where id ='" + id + "'");
+                    }
+                }
+
+            }
+        }
+    }

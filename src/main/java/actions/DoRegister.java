@@ -1,17 +1,21 @@
 package actions;
 
 
+import Additional.Login;
+import Database.UpdateChannel;
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
 import java.io.IOException;
 import java.sql.*;
+import java.util.ArrayList;
 
 @WebServlet(name = "DoRegister", value = "/DoRegister")
-public class DoRegister extends HttpServlet {
+public class DoRegister extends Login {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
+doPost(request,response);
     }
 
     @Override
@@ -20,13 +24,23 @@ public class DoRegister extends HttpServlet {
         String password1 = request.getParameter("password1");
         String password2 = request.getParameter("password2");
         RequestDispatcher rd = request.getRequestDispatcher("register.jsp");
+        if(name==null){
+            rd.forward(request,response);
+        }
+        if(name.equals("")){
+            request.setAttribute("exception","empty");
+            rd.forward(request,response);
+            return;
+        }
         if (!password1.equals(password2) || password1.equals("")) {
             request.setAttribute("exception", "notsame");
             rd.forward(request, response);
         } else {
+            LOCK.writeLock().lock();
             try {
                 if(registrate(name, password1)){
-                    response.sendRedirect("Successful.html");
+                    RequestDispatcher success = request.getRequestDispatcher("WEB-INF/Successful.html");
+                    success.forward(request,response);
                 }
                 else{
                     request.setAttribute("exception", "existlogin");
@@ -34,30 +48,28 @@ public class DoRegister extends HttpServlet {
                 }
             } catch (SQLException | ClassNotFoundException throwables) {
                 response.sendError(500);
+            }finally {
+                LOCK.writeLock().unlock();
             }
         }
     }
 
-    public boolean registrate(String login, String password) throws SQLException, ClassNotFoundException {
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        String host = getServletContext().getInitParameter("database");
-        String user = getServletContext().getInitParameter("user");
-        String dbpassword = getServletContext().getInitParameter("password");
+    public boolean registrate(String login, String password) throws SQLException, ClassNotFoundException, IOException {
+        ArrayList<String> list = getparam();
         try (
-                Connection c = DriverManager.getConnection(host, user, dbpassword)) {
-            Statement st = c.createStatement();
-            ResultSet select = st.executeQuery("select * from custumer2");
+                UpdateChannel uc = new UpdateChannel(list.get(0),list.get(1),list.get(2),list.get(3))) {
+            ArrayList<ArrayList<String>> select = uc.select("select * from custumer2");
 
-            while (select.next()){
-                if(select.getString(1).equals(login)){
+            for(ArrayList<String> logins:select){
+                if (logins.get(0).equals(login)){
                     return false;
                 }
             }
-            String query = "insert into custumer2 (`login`, `password`) VALUES ('" + login+"',"+"'"+password+"'"+")";
-            st.execute(query);
-            query = "insert into hierarchy (`custumerlogin`) VALUE ('"+login+"')";
-            st.execute(query);
+                String query = "insert into custumer2 (`login`, `password`) VALUES ('" + login+"',"+"'"+password+"'"+")";
+                uc.add(query);
+                query = "insert into hierarchy (`custumerlogin`) VALUE ('"+login+"')";
+                uc.add(query);
+            }
             return true;
         }
-    }
 }

@@ -2,6 +2,9 @@ package actions;
 
 
 
+import Additional.Login;
+import Database.UpdateChannel;
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
@@ -11,26 +14,47 @@ import java.sql.*;
 import java.util.ArrayList;
 
 @WebServlet(name = "Signin", value = "/Signin")
-public class Signin extends HttpServlet {
+public class Signin extends Login {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
+doPost(request,response);
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String action = request.getParameter("Signin");
         HttpSession session = request.getSession();
+        if(session.getAttribute("login")!=null){
+            RequestDispatcher rd = request.getRequestDispatcher("CheckRank");
+            rd.forward(request,response);
+            return;
+        }
+        if(action==null){
+            RequestDispatcher rd = request.getRequestDispatcher("index.jsp");
+            rd.forward(request,response);
+            return;
+        }
+        if(session.getAttribute("login")!=null){
+            RequestDispatcher rd = request.getRequestDispatcher("CheckRank");
+            rd.forward(request,response);
+        }
         if(action.equals("Signin")){
             String name = request.getParameter("login");
             String password = request.getParameter("password");
             try {
-                boolean exist =checkCustomer(name,password);
+                boolean exist=false;
+                LOCK.readLock().lock();
+                try {
+                    exist = checkCustomer(name, password);
+                }finally {
+                    LOCK.readLock().unlock();
+                }
                 if(exist){
                     session.setAttribute("login", name);
+                    System.out.println(session.getAttribute("login"));
                     RequestDispatcher rd = request.getRequestDispatcher("CheckRank");
                     rd.forward(request,response);
-                } else{
+                } else {
                     RequestDispatcher rd = request.getRequestDispatcher("index.jsp");
                     request.setAttribute("exception","invalidcustomer");
                     rd.forward(request,response);
@@ -42,20 +66,19 @@ public class Signin extends HttpServlet {
             }
         }
         if(action.equals("Checkin")){
-            response.sendRedirect("register.jsp");
+            System.out.println("s");
+            RequestDispatcher rd = request.getRequestDispatcher("DoRegister");
+            rd.forward(request,response);
+
         }
     }
-    private boolean checkCustomer(String name,String password) throws ClassNotFoundException, SQLException {
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        String host = getServletContext().getInitParameter("database");
-        String user = getServletContext().getInitParameter("user");
-        String dbpassword = getServletContext().getInitParameter("password");
+    private boolean checkCustomer(String name,String password) throws ClassNotFoundException, SQLException, IOException {
+        ArrayList<String> list = getparam();
         try (
-            Connection c = DriverManager.getConnection(host,user,dbpassword)) {
-            Statement st = c.createStatement();
-            ResultSet select = st.executeQuery("select * from custumer2");
-            while(select.next()){
-                if(name.equals(select.getString(1)) && password.equals(select.getString(2))){
+                UpdateChannel uc = new UpdateChannel(list.get(0),list.get(1),list.get(2),list.get(3))) {
+            ArrayList<ArrayList<String>> select = uc.select("select * from custumer2");
+            for (ArrayList<String> customer:select){
+                if(name.equals(customer.get(0)) && password.equals(customer.get(1))){
                     return true;
                 }
             }
