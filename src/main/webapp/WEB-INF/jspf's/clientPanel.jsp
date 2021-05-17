@@ -1,11 +1,4 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%--
-  Created by IntelliJ IDEA.
-  User: Администратор
-  Date: 05.04.2021
-  Time: 17:35
-  To change this template use File | Settings | File Templates.
---%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <html>
 <body>
@@ -42,7 +35,7 @@
 </table>
     <c:if test="${!empty requestScope.action}">
 
-        <jsp:include page="clientViewWondow.jsp"/>
+        <jsp:include page="clientViewWindow.jsp"/>
 
     </c:if>
 </div>

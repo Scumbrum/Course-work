@@ -1,8 +1,7 @@
 package Client;
 
-import Additional.Login;
 import Additional.LoginClient;
-import Database.UpdateChannel;
+import Database.UpdateData;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -10,10 +9,6 @@ import javax.servlet.annotation.*;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @WebServlet(name = "ClientView", value = "/ClientView")
 public class ClientView extends LoginClient {
@@ -29,8 +24,8 @@ public class ClientView extends LoginClient {
         String id = request.getParameter("id");
         String login = (String) session.getAttribute("login");
         ArrayList<String> params = getparam();
-        boolean ch = chekCustomer(request,response);
-        if(!ch){
+        if(!chekCustomer(request,response)){
+            response.sendRedirect("index.jsp");
             return;
         }
         if(action!=null && action.equals("Quit")){
@@ -40,7 +35,7 @@ public class ClientView extends LoginClient {
         }
         String sort = request.getParameter("sortby");
         try (
-             UpdateChannel uc = new UpdateChannel(params.get(0), params.get(1), params.get(2), params.get(3));) {
+                UpdateData uc = new UpdateData(params.get(0), params.get(1), params.get(2), params.get(3));) {
             LOCK.readLock().lock();
             try {
                 if (id == null) {
@@ -59,10 +54,13 @@ public class ClientView extends LoginClient {
                         request.setAttribute("sortby", sort);
                         LOCK.readLock().lock();
                         try {
+
                             ArrayList<String> paramlist = showData(uc, id);
-                            ArrayList<String> meta = showMeta(uc, id);
-                            request.setAttribute("data", paramlist);
-                            request.setAttribute("meta", meta);
+                            if(paramlist!=null) {
+                                ArrayList<String> meta = showMeta(uc, id);
+                                request.setAttribute("data", paramlist);
+                                request.setAttribute("meta", meta);
+                            }
                         }catch (ArrayStoreException e){
                             request.setAttribute("exception",e.getMessage());
                         }
@@ -86,14 +84,13 @@ public class ClientView extends LoginClient {
             LinkedHashMap<String, ArrayList<String>> showlist = new LinkedHashMap<>();
             if (sort != null) {
                 request.setAttribute("sortby", sort);
-                if (sort.equals("date")) {
-                    showlist = sort(uc,"select id from program order by day, time");
-                }
+                if (sort.equals("date")) {showlist = sort(uc,"select id from program order by day, time");}
                 if (sort.equals("channel")) {
                     showlist = sort(uc,"select id from chanels order by name");
                 }
             } else {
                 showlist=defaultSort(uc);
+
             }
             request.setAttribute("showlist", showlist);
         } catch (SQLException | ClassNotFoundException throwables) {
@@ -105,7 +102,7 @@ public class ClientView extends LoginClient {
 
     }
 
-    private LinkedHashMap<String,ArrayList<String>> defaultSort(UpdateChannel uc) throws SQLException {
+    private LinkedHashMap<String,ArrayList<String>> defaultSort(UpdateData uc) throws SQLException {
         LOCK.readLock().lock();
         try {
             String sql = "select id,name,program_id from transfer";
@@ -122,9 +119,12 @@ public class ClientView extends LoginClient {
             LOCK.readLock().unlock();
         }
     }
-    private ArrayList<String> showData(UpdateChannel uc, String id) throws SQLException {
+    private ArrayList<String> showData(UpdateData uc, String id) throws SQLException {
         ArrayList<String> paramlist = new ArrayList<>();
         ArrayList<ArrayList<String>> namelist = uc.select("select chanel_id, name, description, program_id from transfer where id ='" + id + "'");
+        if(namelist.size()==0){
+            return null;
+        }
         String name = uc.select("select name from chanels where id = '" +namelist.get(0).get(0) + "'").get(0).get(0);
         paramlist.add(name);
         paramlist.add(namelist.get(0).get(1));
@@ -152,7 +152,7 @@ public class ClientView extends LoginClient {
         return newList;
     }
 
-    private ArrayList<String> showMeta(UpdateChannel uc, String id) throws SQLException {
+    private ArrayList<String> showMeta(UpdateData uc, String id) throws SQLException {
         ArrayList<String> meta= new ArrayList<>();
         ArrayList<String> temp = uc.getMeta("transfer");
         temp.remove(0);
@@ -163,7 +163,7 @@ public class ClientView extends LoginClient {
         meta.addAll(temp);
         return meta;
     }
-    private LinkedHashMap<String, ArrayList<String>> sort(UpdateChannel uc,String sort) throws SQLException {
+    private LinkedHashMap<String, ArrayList<String>> sort(UpdateData uc, String sort) throws SQLException {
         LOCK.readLock().lock();
         try {
             LinkedHashMap<String, ArrayList<String>> showlist = new LinkedHashMap<>();
@@ -182,14 +182,12 @@ public class ClientView extends LoginClient {
         }
     }
 
-    private void addId(UpdateChannel uc, String login,String id) throws SQLException {
-        System.out.println(id);
+    private void addId(UpdateData uc, String login, String id) throws SQLException {
         ArrayList<ArrayList<String>> list = uc.select("select * from view_id where `customer_login` = '" + login + "'");
         if(list.size()==0){
-            uc.add("insert into view_id (`customer_login`,`curr_id`) values (' "+ login+" ','" +id + "')");
+            uc.add("insert into view_id (`customer_login`,`curr_id`) values ('"+ login+"','" +id + "')");
         }else {
             uc.add("update view_id set curr_id ='" +id  + "' where customer_login ='" + login + "'");
         }
-        System.out.println(2);
     }
 }

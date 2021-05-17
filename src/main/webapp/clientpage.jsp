@@ -2,20 +2,14 @@
 <%@ page import="java.util.TreeSet" %>
 <%@ page import="java.util.TreeMap" %>
 <%@ page import="java.util.LinkedHashMap" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %><%--
-  Created by IntelliJ IDEA.
-  User: Администратор
-  Date: 29.03.2021
-  Time: 13:27
-  To change this template use File | Settings | File Templates.
---%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <html>
 <head>
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="Styles/multimedia/Logo.png">
-    <link rel="stylesheet" type="text/css" href="Styles/S.css">
+    <link rel="icon" type="image/png" href="Style/multimedia/Logo.png">
+    <link rel="stylesheet" type="text/css" href="Style/Styles.css">
     <title>ClientPage</title>
 </head>
 <body class="body">

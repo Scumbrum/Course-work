@@ -1,8 +1,8 @@
 package actions;
 
 
-import Additional.Login;
-import Database.UpdateChannel;
+import Additional.LoginClient;
+import Database.UpdateData;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -10,12 +10,13 @@ import javax.servlet.annotation.*;
 import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Locale;
 
 @WebServlet(name = "DoRegister", value = "/DoRegister")
-public class DoRegister extends Login {
+public class DoRegister extends LoginClient {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-doPost(request,response);
+        doPost(request,response);
     }
 
     @Override
@@ -26,7 +27,9 @@ doPost(request,response);
         RequestDispatcher rd = request.getRequestDispatcher("register.jsp");
         if(name==null){
             rd.forward(request,response);
+            return;
         }
+        name=name.toLowerCase();
         if(name.equals("")){
             request.setAttribute("exception","empty");
             rd.forward(request,response);
@@ -57,7 +60,7 @@ doPost(request,response);
     public boolean registrate(String login, String password) throws SQLException, ClassNotFoundException, IOException {
         ArrayList<String> list = getparam();
         try (
-                UpdateChannel uc = new UpdateChannel(list.get(0),list.get(1),list.get(2),list.get(3))) {
+                UpdateData uc = new UpdateData(list.get(0),list.get(1),list.get(2),list.get(3))) {
             ArrayList<ArrayList<String>> select = uc.select("select * from custumer2");
 
             for(ArrayList<String> logins:select){

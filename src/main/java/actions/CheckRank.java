@@ -1,7 +1,7 @@
 package actions;
 
-import Additional.Login;
-import Database.UpdateChannel;
+import Additional.LoginClient;
+import Database.UpdateData;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -11,7 +11,7 @@ import java.sql.*;
 import java.util.ArrayList;
 
 @WebServlet(name = "CheckRank", value = "/CheckRank")
-public class CheckRank extends Login {
+public class CheckRank extends LoginClient {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
     doPost(request,response);
@@ -21,13 +21,13 @@ public class CheckRank extends Login {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         String name = (String) session.getAttribute("login");
-        if(name==null){
-            response.sendRedirect("Signin");
+        if(!chekCustomer(request,response)){
+            response.sendRedirect("index.jsp");
             return;
         }
         ArrayList<String> list = getparam();
         try (
-                UpdateChannel uc = new UpdateChannel(list.get(0),list.get(1),list.get(2),list.get(3))) {
+                UpdateData uc = new UpdateData(list.get(0),list.get(1),list.get(2),list.get(3))) {
             String query = "select * from hierarchy where custumerlogin=" + "'"+name+"'";
             ArrayList<ArrayList<String>> select = uc.select(query);
             String rank = select.get(0).get(1);

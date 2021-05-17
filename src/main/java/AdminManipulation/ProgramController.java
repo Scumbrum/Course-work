@@ -1,7 +1,7 @@
 package AdminManipulation;
 
-import Additional.Login;
-import Database.UpdateChannel;
+import Additional.LoginAdmin;
+import Database.UpdateData;
 import Exceptions.TheSameName;
 
 import javax.servlet.*;
@@ -10,10 +10,9 @@ import javax.servlet.annotation.*;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @WebServlet(name = "ProgramController", value = "/ProgramController")
-public class ProgramController extends Login {
+public class ProgramController extends LoginAdmin {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 doPost(request,response);
@@ -21,14 +20,14 @@ doPost(request,response);
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        boolean ch=chekCustomer(request,response);
-        if(!ch){
+        if(!chekCustomer(request,response)){
+            response.sendRedirect("index.jsp");
             return;
         }
         String action =request.getParameter("action");
         String id = request.getParameter("id");
         ArrayList<String> params = getparam();
-        try (UpdateChannel uc = new UpdateChannel(params.get(0), params.get(1), params.get(2), params.get(3)))  {
+        try (UpdateData uc = new UpdateData(params.get(0), params.get(1), params.get(2), params.get(3)))  {
             if(action!=null) {
                 switch (action) {
                     case ("Refactor"):
@@ -56,12 +55,13 @@ doPost(request,response);
             }
         } catch (ClassNotFoundException throwables) {
             response.sendError(500);
+            return;
         } catch (SQLException e){
             request.setAttribute("exception","Invalid data");
         } catch (TheSameName e){
             request.setAttribute("exception","existTransfer");
         }
-        try (UpdateChannel uc = new UpdateChannel(params.get(0), params.get(1), params.get(2), params.get(3))) {
+        try (UpdateData uc = new UpdateData(params.get(0), params.get(1), params.get(2), params.get(3))) {
             LOCK.readLock().lock();
             try{
                 ArrayList<ArrayList<String>> list = makeList(uc);
@@ -71,6 +71,7 @@ doPost(request,response);
             }
         }catch (SQLException | ClassNotFoundException e){
             response.sendError(500);
+            return;
         }
         request.setAttribute("controller", "program");
         RequestDispatcher rd = request.getRequestDispatcher("adminpage.jsp");
@@ -78,7 +79,7 @@ doPost(request,response);
     }
 
 
-    private void doRefactor(HttpServletRequest request, UpdateChannel uc,String id) throws SQLException, TheSameName {
+    private void doRefactor(HttpServletRequest request, UpdateData uc, String id) throws SQLException, TheSameName {
             ArrayList<String> resultmeta = uc.getMeta("program");
             resultmeta.remove(0);
             String time = request.getParameter(resultmeta.get(0));
@@ -97,7 +98,7 @@ doPost(request,response);
         }
 
 
-    private ArrayList<ArrayList<String>> showParam(HttpServletRequest request,UpdateChannel uc, String id) throws SQLException {
+    private ArrayList<ArrayList<String>> showParam(HttpServletRequest request, UpdateData uc, String id) throws SQLException {
         request.setAttribute("action","Refactor");
             String sql = "select id,name,program_id from transfer where id ='" + id + "'";
             ArrayList<ArrayList<String>> list = uc.select(sql);
@@ -108,7 +109,7 @@ doPost(request,response);
             return list;
     }
 
-   private boolean chekExistTransfer(HttpServletRequest request, UpdateChannel uc,String id) throws SQLException {
+   private boolean chekExistTransfer(HttpServletRequest request, UpdateData uc, String id) throws SQLException {
             ArrayList<ArrayList<String>> transfers = new ArrayList<>();
             ArrayList<String> meta = uc.getMeta("program");
             String chanel = uc.select("select chanel_id from transfer where id ='" + id + "'").get(0).get(0);
@@ -125,7 +126,7 @@ doPost(request,response);
             }
         }
 
-    private ArrayList<ArrayList<String>> makeList(UpdateChannel uc) throws SQLException {
+    private ArrayList<ArrayList<String>> makeList(UpdateData uc) throws SQLException {
         ArrayList<ArrayList<String>> list = new ArrayList<>();
         ArrayList<ArrayList<String>> transfers = uc.select("select id, chanel_id, name, program_id from transfer");
         for(int row=0;row<transfers.size();row++) {
@@ -135,10 +136,15 @@ doPost(request,response);
                     String pid = transfers.get(row).get(i);
                     String sql = "select time, day from program where id ='" + pid + "'";
                     temp.addAll(uc.select(sql).get(0));
-                }
+                } else
                 if (i==0 | i==2) {
                     temp.add(transfers.get(row).get(i));
+                } else {
+                    String cid = transfers.get(row).get(i);
+                    String sql = "select name from chanels where id ='" + cid + "'";
+                    temp.add(uc.select(sql).get(0).get(0));
                 }
+
             }
             list.add(temp);
         }

@@ -1,20 +1,14 @@
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="java.util.TreeMap" %>
-<%@ page import="AdminManipulation.ChannelController" %><%--
-  Created by IntelliJ IDEA.
-  User: UserS
-  Date: 29.03.2021
-  Time: 13:28
-  To change this template use File | Settings | File Templates.
---%>
+<%@ page import="AdminManipulation.ChannelController" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <html>
 <head>
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="Styles/multimedia/Logo.png">
-    <link rel="stylesheet" type="text/css" href="Styles/S.css">
+    <link rel="icon" type="image/png" href="Style/multimedia/Logo.png">
+    <link rel="stylesheet" type="text/css" href="Style/Styles.css">
     <meta charset="UTF-8">
     <title>AdminPage</title>
 </head>
@@ -33,6 +27,7 @@
     </div>
 </header>
 <div class="workPanel">
+<jsp:include page="WEB-INF/jspf's/adminException.jsp"/>
 <jsp:include page="WEB-INF/jspf's/adminPanel.html"/>
 
 <c:if test="${!empty requestScope.controller}">
@@ -56,7 +51,6 @@
         <jsp:include page="WEB-INF/jspf's/programSettings.jsp"/>
     </c:if>
 </c:if>
-    <jsp:include page="WEB-INF/jspf's/adminException.jsp"/>
 </div>
 </body>
 </html>

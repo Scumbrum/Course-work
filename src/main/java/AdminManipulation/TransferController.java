@@ -1,7 +1,7 @@
 package AdminManipulation;
 
-import Additional.Login;
-import Database.UpdateChannel;
+import Additional.LoginAdmin;
+import Database.UpdateData;
 import Exceptions.NoChannel;
 import Exceptions.NoNameTransfer;
 import Exceptions.TheSameName;
@@ -14,7 +14,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 
 @WebServlet(name = "TransferController", value = "/TransferController")
-public class TransferController extends Login {
+public class TransferController extends LoginAdmin {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
     doPost(request, response);
@@ -22,14 +22,14 @@ public class TransferController extends Login {
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        boolean ch=chekCustomer(request,response);
-        if(!ch){
+        if(!chekCustomer(request,response)){
+            response.sendRedirect("index.jsp");
             return;
         }
         String action =request.getParameter("action");
         String id = request.getParameter("id");
         ArrayList<String> Dbparams = getparam();
-        try (UpdateChannel uc = new UpdateChannel(Dbparams.get(0), Dbparams.get(1), Dbparams.get(2), Dbparams.get(3)))  {
+        try (UpdateData uc = new UpdateData(Dbparams.get(0), Dbparams.get(1), Dbparams.get(2), Dbparams.get(3)))  {
             if(action!=null) {
                 switch (action) {
                     case ("delete"):
@@ -74,7 +74,6 @@ public class TransferController extends Login {
                         }
                         break;
                     case("doRefactor"):
-                        System.out.println(2);
                         LOCK.writeLock().lock();
                         try {
                         doRefactor(request,uc,id);
@@ -94,7 +93,7 @@ public class TransferController extends Login {
         } catch (TheSameName e){
             request.setAttribute("exception","sameTransfer");
         }
-        try (UpdateChannel uc = new UpdateChannel(Dbparams.get(0), Dbparams.get(1), Dbparams.get(2), Dbparams.get(3))){
+        try (UpdateData uc = new UpdateData(Dbparams.get(0), Dbparams.get(1), Dbparams.get(2), Dbparams.get(3))){
             ArrayList<ArrayList<String>> list = uc.select("select id, name from transfer");
             request.setAttribute("trlist", list);
         } catch (SQLException | ClassNotFoundException throwables) {
@@ -107,7 +106,7 @@ public class TransferController extends Login {
     }
 
 
-    public void doAdd(HttpServletRequest request, UpdateChannel uc) throws SQLException, NoChannel, NoNameTransfer, TheSameName {
+    public void doAdd(HttpServletRequest request, UpdateData uc) throws SQLException, NoChannel, NoNameTransfer, TheSameName {
         if(request.getParameter("name").equals("")){
             throw new NoNameTransfer("NoNameTransfer");
         }
@@ -147,18 +146,16 @@ public class TransferController extends Login {
             uc.add("insert into transfer (" + columns + ") values (" + values + ")");
         }
 
-    private boolean checkTransfer(UpdateChannel uc, String name, String channel) throws SQLException {
+    private boolean checkTransfer(UpdateData uc, String name, String channel) throws SQLException {
             String id = uc.select("select id from chanels where name ='" + channel + "'").get(0).get(0);
-            System.out.println(2);
             ArrayList<ArrayList<String>> transfers = uc.select("select id from transfer " +
                     "where name ='" + name + "' and chanel_id ='" + id + "'");
-            System.out.println(3);
             if (transfers.size() != 0) {
                 return true;
             }
             return false;
     }
-    private boolean checkChannel(UpdateChannel uc, String name) throws SQLException {
+    private boolean checkChannel(UpdateData uc, String name) throws SQLException {
             ArrayList<ArrayList<String>> chanels = uc.select("select id from chanels where name ='" + name + "'");
             if (chanels.size() != 0) {
                 return true;
@@ -167,19 +164,22 @@ public class TransferController extends Login {
     }
 
 
-    public void doRefactor(HttpServletRequest request, UpdateChannel uc, String id) throws SQLException, NoNameTransfer, NoChannel {
+    public void doRefactor(HttpServletRequest request, UpdateData uc, String id) throws SQLException, NoNameTransfer, NoChannel, TheSameName {
         if(request.getParameter("name").equals("")){
             throw new NoNameTransfer("NoNameTransfer");
         }
         if(!checkChannel(uc, request.getParameter("chanel_id"))){
             throw new NoChannel("NoChannel");
         }
+        String name = request.getParameter("name");
+        String channel = request.getParameter("chanel_id");
+        if(checkTransfer(uc,name,channel)){
+            throw new TheSameName("sameTransfer");
+        }
             ArrayList<String> metaRef = uc.getMeta("transfer");
-            System.out.println(1);
             ArrayList<String> curr = uc.select("select * from transfer where id ='" + id + "'").get(0);
             for (int i = 1; i < metaRef.size() - 1; i++) {
                 String param = request.getParameter(metaRef.get(i));
-                System.out.println(param);
                 if (metaRef.get(i).equals("chanel_id")) {
                     String chanel_id = uc.select("select id from chanels where name ='" + param + "'").get(0).get(0);
                     if (!curr.get(i).equals(chanel_id)) {

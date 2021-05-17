@@ -4,8 +4,8 @@
 <head>
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="Styles/multimedia/Logo.png">
-    <link rel="stylesheet" type="text/css" href="Styles/S.css">
+    <link rel="icon" type="image/png" href="Style/multimedia/Logo.png">
+    <link rel="stylesheet" type="text/css" href="Style/Styles.css">
     <meta charset="UTF-8">
     <title>Authorisation</title>
 </head>
@@ -32,7 +32,6 @@
     <input type="hidden" name="Signin" value="Checkin">
     <p class="authorisationParagraph"><input class="button" type="submit" value="Реєстрація"/></p>
 </form>
-    <p class="market">Тут може бути ваша реклама</p>
 </div>
 </body>
 </html>

@@ -1,21 +1,21 @@
 package AdminManipulation;
 
-import Additional.Login;
+import Additional.LoginAdmin;
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
 import java.io.IOException;
 
 @WebServlet(name = "ShowController", value = "/ShowController")
-public class ShowController extends Login {
+public class ShowController extends LoginAdmin {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
     doPost(request,response);
     }
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        boolean ch=chekCustomer(request,response);
-        if(!ch){
+        if(!chekCustomer(request,response)){
+            response.sendRedirect("index.jsp");
             return;
         }
         String controller = request.getParameter("controller");
@@ -36,7 +36,6 @@ public class ShowController extends Login {
              case("refactChannels"):
                  rd = request.getRequestDispatcher("ChannelController");
                  rd.forward(request,response);
-                 response.sendRedirect("ChannelController");
                  break;
              case ("refactTransfers"):
                  rd = request.getRequestDispatcher("TransferController");
